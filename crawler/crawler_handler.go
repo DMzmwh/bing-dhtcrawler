@@ -2,12 +2,14 @@ package crawler
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/bing/bing-dhtcrawler/dht"
+	"github.com/bing/bing-dhtcrawler/storage"
 )
 
 /*
@@ -341,231 +343,148 @@ func (bc *BingCrawler) reseedBootstrapNodes(ctx context.Context) {
 	}
 }
 
-//
-//const classifyBatchSize = 100
-//
-//// runPersistTorrents persists discovered torrent metadata and forwards hashes to scrape.
-//func (c *BingCrawler) runPersistTorrents(ctx context.Context) {
-//	for {
-//		select {
-//		case <-ctx.Done():
-//			return
-//
-//		case items, ok := <-c.persistTorrents.Out():
-//			if !ok {
-//				return
-//			}
-//			if len(items) == 0 {
-//				continue
-//			}
-//
-//			hashMap := make(map[dht.InfoHash]InfoHashWithMetaInfo, len(items))
-//			torrents := make([]model.Torrent, 0, len(items))
-//			hashesToClassify := make([]dht.InfoHash, 0, classifyBatchSize)
-//
-//			flushHashesToClassify := func() {
-//				if len(hashesToClassify) == 0 {
-//					return
-//				}
-//
-//				if err := c.storage.SaveClassifyJobs(
-//					ctx,
-//					hashesToClassify,
-//					time.Minute,
-//				); err != nil {
-//					c.logger.Errorf("error saving classify jobs: %s", err)
-//				}
-//
-//				hashesToClassify = make([]dht.InfoHash, 0, classifyBatchSize)
-//			}
-//
-//			for _, item := range items {
-//				if _, exists := hashMap[item.infoHash]; exists {
-//					continue
-//				}
-//
-//				hashMap[item.infoHash] = item
-//
-//				torrent, err := createTorrentModel(
-//					item.infoHash,
-//					item.metaInfo,
-//					c.savePieces,
-//					c.saveFilesThreshold,
-//				)
-//				if err != nil {
-//					c.logger.Errorf("error creating torrent model: %s", err)
-//					continue
-//				}
-//
-//				torrents = append(torrents, torrent)
-//				hashesToClassify = append(hashesToClassify, item.infoHash)
-//
-//				if len(hashesToClassify) >= classifyBatchSize {
-//					flushHashesToClassify()
-//				}
-//			}
-//
-//			flushHashesToClassify()
-//
-//			if len(torrents) == 0 {
-//				continue
-//			}
-//
-//			if err := c.storage.SaveTorrents(ctx, torrents); err != nil {
-//				c.logger.Errorf("error persisting torrents: %s", err)
-//				continue
-//			}
-//
-//			c.logger.Debugw(
-//				"persisted torrents",
-//				"count", len(torrents),
-//			)
-//
-//			for _, item := range hashMap {
-//				select {
-//				case <-ctx.Done():
-//					return
-//				case c.scrape.In() <- item.nodeHasPeersForHash:
-//				}
-//			}
-//		}
-//	}
-//}
-//
-//// createTorrentModel converts metainfo into the crawler's persistence model.
-//func createTorrentModel(
-//	hash dht.InfoHash,
-//	info metainfo.Info,
-//	savePieces bool,
-//	saveFilesThreshold uint,
-//) (model.Torrent, error) {
-//	name := info.BestName()
-//
-//	private := false
-//	if info.Private != nil {
-//		private = *info.Private
-//	}
-//
-//	var filesCount *uint
-//
-//	filesStatus := model.FilesStatusSingle
-//	if len(info.Files) > 0 {
-//		filesStatus = model.FilesStatusMulti
-//		count := uint(len(info.Files))
-//		filesCount = &count
-//	}
-//
-//	files := make([]model.TorrentFile, 0, min(int(saveFilesThreshold), len(info.Files)))
-//
-//	for i, file := range info.Files {
-//		if i >= int(saveFilesThreshold) {
-//			filesStatus = model.FilesStatusOverThreshold
-//			break
-//		}
-//
-//		files = append(files, model.TorrentFile{
-//			InfoHash: hash,
-//			Index:    uint(i),
-//			Path:     file.DisplayPath(&info),
-//			Size:     uint(file.Length),
-//		})
-//	}
-//
-//	var pieces *model.TorrentPieces
-//	if savePieces {
-//		pieces = &model.TorrentPieces{
-//			InfoHash:    hash,
-//			PieceLength: info.PieceLength,
-//			Pieces:      info.Pieces,
-//		}
-//	}
-//
-//	return model.Torrent{
-//		InfoHash:    hash,
-//		Name:        name,
-//		Size:        uint(info.TotalLength()),
-//		Private:     private,
-//		Pieces:      pieces,
-//		Files:       files,
-//		FilesStatus: filesStatus,
-//		FilesCount:  filesCount,
-//		Sources: []model.TorrentSource{
-//			{
-//				Source:   "dht",
-//				InfoHash: hash,
-//			},
-//		},
-//	}, nil
-//}
-//
-//// runPersistSources persists DHT scrape results.
-//func (c *crawler) runPersistSources(ctx context.Context) {
-//	for {
-//		select {
-//		case <-ctx.Done():
-//			return
-//
-//		case scrapes, ok := <-c.persistSources.Out():
-//			if !ok {
-//				return
-//			}
-//			if len(scrapes) == 0 {
-//				continue
-//			}
-//
-//			hashSet := make(map[dht.InfoHash]struct{}, len(scrapes))
-//			sources := make([]model.TorrentSource, 0, len(scrapes))
-//
-//			for _, scrape := range scrapes {
-//				if _, exists := hashSet[scrape.infoHash]; exists {
-//					continue
-//				}
-//				hashSet[scrape.infoHash] = struct{}{}
-//
-//				source, err := createTorrentSourceModel(scrape)
-//				if err != nil {
-//					c.logger.Errorf(
-//						"error creating torrent source model: %s",
-//						err,
-//					)
-//					continue
-//				}
-//
-//				sources = append(sources, source)
-//			}
-//
-//			if len(sources) == 0 {
-//				continue
-//			}
-//
-//			if err := c.storage.SaveSources(ctx, sources); err != nil {
-//				c.logger.Errorf(
-//					"error persisting torrent sources: %s",
-//					err,
-//				)
-//				continue
-//			}
-//
-//			c.logger.Debugw(
-//				"persisted torrent sources",
-//				"count", len(sources),
-//			)
-//		}
-//	}
-//}
-//
-//// createTorrentSourceModel converts DHT scrape information into a source model.
-//func createTorrentSourceModel(
-//	result infoHashWithScrape,
-//) (model.TorrentSource, error) {
-//	seeders := uint(result.bfsd.ApproximatedSize())
-//	leechers := uint(result.bfpe.ApproximatedSize())
-//
-//	return model.TorrentSource{
-//		Source:    "dht",
-//		InfoHash:  result.infoHash,
-//		Seeders:   &seeders,
-//		Leechers:  &leechers,
-//		UpdatedAt: time.Now(),
-//	}, nil
-//}
+// runPersistTorrents 把抓取到的种子元数据转换成可序列化记录交给 Storage，
+// 并把对应的 InfoHash 继续投递给 scrape 队列。
+func (c *BingCrawler) runPersistTorrents(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case items, ok := <-c.persistTorrents.Out():
+			if !ok {
+				return
+			}
+			if len(items) == 0 {
+				continue
+			}
+
+			seen := make(map[dht.InfoHash]struct{}, len(items))
+			records := make([]any, 0, len(items))
+			torrents := make([]InfoHashWithMetaInfo, 0, len(items))
+
+			for _, item := range items {
+				if _, exists := seen[item.infoHash]; exists {
+					continue
+				}
+				seen[item.infoHash] = struct{}{}
+				records = append(records, createTorrentRecord(item, c.saveFilesThreshold))
+				torrents = append(torrents, item)
+			}
+
+			if len(records) == 0 {
+				continue
+			}
+
+			if err := c.storage.SaveTorrents(ctx, records); err != nil {
+				c.logger.Error("error persisting torrents", "err", err, "count", len(records))
+				continue
+			}
+
+			c.logger.Info("persisted torrents", "count", len(records))
+
+			for _, item := range torrents {
+				select {
+				case <-ctx.Done():
+					return
+				case c.scrape.In() <- item.NodeHasPeersForHash:
+				}
+			}
+		}
+	}
+}
+
+// createTorrentRecord 把 metainfo 转换成 Storage 可序列化的记录。
+// 文件数量超过 saveFilesThreshold 时截断，FileCount 仍保留真实数量。
+func createTorrentRecord(item InfoHashWithMetaInfo, saveFilesThreshold uint) storage.TorrentRecord {
+	info := item.metaInfo
+
+	record := storage.TorrentRecord{
+		InfoHash:     hex.EncodeToString(item.infoHash[:]),
+		Name:         info.BestName(),
+		Size:         info.TotalLength(),
+		PieceLength:  info.PieceLength,
+		FileCount:    len(info.Files),
+		DiscoveredAt: time.Now(),
+	}
+	if info.Private != nil {
+		record.Private = *info.Private
+	}
+	if item.node != nil {
+		record.NodeID = hex.EncodeToString(item.node.ID[:])
+		record.NodeAddr = item.node.Addr.String()
+	}
+
+	limit := len(info.Files)
+	if saveFilesThreshold > 0 && limit > int(saveFilesThreshold) {
+		limit = int(saveFilesThreshold)
+	}
+	for i := 0; i < limit; i++ {
+		file := info.Files[i]
+		record.Files = append(record.Files, storage.TorrentFileRecord{
+			Path: file.DisplayPath(&info),
+			Size: file.Length,
+		})
+	}
+
+	return record
+}
+
+// runPersistSources 把 DHT scrape 结果转换成可序列化记录交给 Storage。
+func (c *BingCrawler) runPersistSources(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case scrapes, ok := <-c.persistSources.Out():
+			if !ok {
+				return
+			}
+			if len(scrapes) == 0 {
+				continue
+			}
+
+			seen := make(map[dht.InfoHash]struct{}, len(scrapes))
+			records := make([]any, 0, len(scrapes))
+
+			for _, item := range scrapes {
+				if _, exists := seen[item.infoHash]; exists {
+					continue
+				}
+				seen[item.infoHash] = struct{}{}
+				records = append(records, createSourceRecord(item))
+			}
+
+			if len(records) == 0 {
+				continue
+			}
+
+			if err := c.storage.SaveSources(ctx, records); err != nil {
+				c.logger.Error("error persisting torrent sources", "err", err, "count", len(records))
+				continue
+			}
+
+			c.logger.Info("persisted torrent sources", "count", len(records))
+		}
+	}
+}
+
+// createSourceRecord 把 scrape Bloom Filter 估算出的 Seeder / Leecher 数量转成记录。
+func createSourceRecord(item InfoHashWithScrape) storage.SourceRecord {
+	record := storage.SourceRecord{
+		InfoHash:  hex.EncodeToString(item.infoHash[:]),
+		UpdatedAt: time.Now(),
+	}
+	if item.node != nil {
+		record.NodeAddr = item.node.Addr.String()
+	}
+	if item.bfsd != nil {
+		record.Seeders = uint(max(0, int(item.bfsd.EstimateCount())))
+	}
+	if item.bfpe != nil {
+		record.Leechers = uint(max(0, int(item.bfpe.EstimateCount())))
+	}
+
+	return record
+}

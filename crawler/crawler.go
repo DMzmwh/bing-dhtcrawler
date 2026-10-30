@@ -193,8 +193,8 @@ func (c *BingCrawler) Start(ctx context.Context) {
 		// Bootstrap 重连
 		go c.reseedBootstrapNodes(ctx)
 		// 持久化
-		//go c.runPersistTorrents(ctx)
-		//go c.runPersistSources(ctx)
+		go c.runPersistTorrents(ctx)
+		go c.runPersistSources(ctx)
 		go c.runMerics(ctx)
 	})
 }
