@@ -267,7 +267,8 @@ func (bc *BingCrawler) runRequestMetaInfo(ctx context.Context) {
 			case <-ctx.Done():
 			case bc.persistTorrents.In() <- InfoHashWithMetaInfo{
 				NodeHasPeersForHash: hash.NodeHasPeersForHash,
-				metaInfo:            res.Info}:
+				metaInfo:            res.Info,
+				peer:                peer}:
 			}
 		}
 	})
@@ -413,6 +414,9 @@ func createTorrentRecord(item InfoHashWithMetaInfo, saveFilesThreshold uint) sto
 	if item.node != nil {
 		record.NodeID = hex.EncodeToString(item.node.ID[:])
 		record.NodeAddr = item.node.Addr.String()
+	}
+	if item.peer.IsValid() {
+		record.PeerAddr = item.peer.String()
 	}
 
 	limit := len(info.Files)

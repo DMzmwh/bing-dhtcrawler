@@ -207,6 +207,8 @@ type NodeHasPeersForHash struct {
 type InfoHashWithMetaInfo struct {
 	NodeHasPeersForHash
 	metaInfo metainfo.Info
+	// peer 是实际返回元数据的对等节点地址，可用于下载时直连。
+	peer netip.AddrPort
 }
 
 type InfoHashWithPeers struct {
