@@ -1,4 +1,4 @@
-module github.com/bing/bing-dhtcrawler
+module github.com/DMzmwh/bing-dhtcrawler
 
 go 1.26.0
 

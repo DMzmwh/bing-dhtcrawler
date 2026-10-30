@@ -3,13 +3,13 @@
 `bing-play` 不复制 crawler 源码，只依赖：
 
 ```go
-import dhtcrawler "github.com/bing/bing-dhtcrawler"
+import dhtcrawler "github.com/DMzmwh/bing-dhtcrawler"
 ```
 
 开发阶段可以：
 
 ```go
-replace github.com/bing/bing-dhtcrawler => ../bing-dhtcrawler
+replace github.com/DMzmwh/bing-dhtcrawler => ../bing-dhtcrawler
 ```
 
 建议 bing-play 只消费：

@@ -16,7 +16,7 @@ import (
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/peer_protocol"
-	"github.com/bing/bing-dhtcrawler/dht"
+	"github.com/DMzmwh/bing-dhtcrawler/dht"
 
 	mi "github.com/anacrolix/torrent/metainfo"
 )

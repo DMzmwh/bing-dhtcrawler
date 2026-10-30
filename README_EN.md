@@ -7,7 +7,7 @@ A BitTorrent DHT crawler / DHT server written in Go. It continuously discovers D
 It can run as a standalone process or be imported as a Go module by projects such as `bing-play`.
 
 > Current version: `v0.2.0` (see [version.go](version.go))
-> Module path: `github.com/bing/bing-dhtcrawler`
+> Module path: `github.com/DMzmwh/bing-dhtcrawler`
 > Go version: `go 1.26.0` (see [go.mod](go.mod))
 
 ---
@@ -359,15 +359,15 @@ The repository currently has **no unit tests**. `go test ./...` fails because of
 After a formal release:
 
 ```bash
-go get github.com/bing/bing-dhtcrawler@v0.2.0
+go get github.com/DMzmwh/bing-dhtcrawler@v0.2.0
 ```
 
 For local development:
 
 ```go
-require github.com/bing/bing-dhtcrawler v0.2.0
+require github.com/DMzmwh/bing-dhtcrawler v0.2.0
 
-replace github.com/bing/bing-dhtcrawler => ../bing-dhtcrawler
+replace github.com/DMzmwh/bing-dhtcrawler => ../bing-dhtcrawler
 ```
 
 ### 7.2 Minimal integration example
@@ -384,11 +384,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bing/bing-dhtcrawler/crawler"
-	metrics2 "github.com/bing/bing-dhtcrawler/crawler/metrics"
-	"github.com/bing/bing-dhtcrawler/dht"
-	"github.com/bing/bing-dhtcrawler/metadata"
-	"github.com/bing/bing-dhtcrawler/storage"
+	"github.com/DMzmwh/bing-dhtcrawler/crawler"
+	metrics2 "github.com/DMzmwh/bing-dhtcrawler/crawler/metrics"
+	"github.com/DMzmwh/bing-dhtcrawler/dht"
+	"github.com/DMzmwh/bing-dhtcrawler/metadata"
+	"github.com/DMzmwh/bing-dhtcrawler/storage"
 	boom "github.com/tylertreat/BoomFilters"
 )
 

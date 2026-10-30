@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/bing/bing-dhtcrawler/dht"
+	"github.com/DMzmwh/bing-dhtcrawler/dht"
 )
 
 type Storage interface {

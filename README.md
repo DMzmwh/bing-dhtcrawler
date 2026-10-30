@@ -7,7 +7,7 @@
 项目可作为独立进程运行，也可作为 Go module 被 `bing-play` 等业务项目引入。
 
 > 当前版本：`v0.2.0`（见 [version.go](version.go)）
-> 模块路径：`github.com/bing/bing-dhtcrawler`
+> 模块路径：`github.com/DMzmwh/bing-dhtcrawler`
 > Go 版本要求：`go 1.26.0`（见 [go.mod](go.mod)）
 
 ---
@@ -357,15 +357,15 @@ go test -race ./...   # 仓库暂无测试文件
 正式发布后：
 
 ```bash
-go get github.com/bing/bing-dhtcrawler@v0.2.0
+go get github.com/DMzmwh/bing-dhtcrawler@v0.2.0
 ```
 
 本地开发：
 
 ```go
-require github.com/bing/bing-dhtcrawler v0.2.0
+require github.com/DMzmwh/bing-dhtcrawler v0.2.0
 
-replace github.com/bing/bing-dhtcrawler => ../bing-dhtcrawler
+replace github.com/DMzmwh/bing-dhtcrawler => ../bing-dhtcrawler
 ```
 
 ### 7.2 最小接入示例
@@ -382,11 +382,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bing/bing-dhtcrawler/crawler"
-	metrics2 "github.com/bing/bing-dhtcrawler/crawler/metrics"
-	"github.com/bing/bing-dhtcrawler/dht"
-	"github.com/bing/bing-dhtcrawler/metadata"
-	"github.com/bing/bing-dhtcrawler/storage"
+	"github.com/DMzmwh/bing-dhtcrawler/crawler"
+	metrics2 "github.com/DMzmwh/bing-dhtcrawler/crawler/metrics"
+	"github.com/DMzmwh/bing-dhtcrawler/dht"
+	"github.com/DMzmwh/bing-dhtcrawler/metadata"
+	"github.com/DMzmwh/bing-dhtcrawler/storage"
 	boom "github.com/tylertreat/BoomFilters"
 )
 

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bing/bing-dhtcrawler/dht"
-	"github.com/bing/bing-dhtcrawler/storage"
+	"github.com/DMzmwh/bing-dhtcrawler/dht"
+	"github.com/DMzmwh/bing-dhtcrawler/storage"
 )
 
 /*

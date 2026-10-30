@@ -3,7 +3,7 @@ package crawler
 import (
 	"context"
 
-	"github.com/bing/bing-dhtcrawler/dht"
+	"github.com/DMzmwh/bing-dhtcrawler/dht"
 )
 
 type Triage interface {

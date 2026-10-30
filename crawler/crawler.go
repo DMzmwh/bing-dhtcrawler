@@ -9,11 +9,11 @@ import (
 
 	"github.com/anacrolix/dht/v2/krpc"
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/bing/bing-dhtcrawler/concurrency"
-	"github.com/bing/bing-dhtcrawler/crawler/metrics"
-	"github.com/bing/bing-dhtcrawler/dht"
-	"github.com/bing/bing-dhtcrawler/metadata"
-	"github.com/bing/bing-dhtcrawler/storage"
+	"github.com/DMzmwh/bing-dhtcrawler/concurrency"
+	"github.com/DMzmwh/bing-dhtcrawler/crawler/metrics"
+	"github.com/DMzmwh/bing-dhtcrawler/dht"
+	"github.com/DMzmwh/bing-dhtcrawler/metadata"
+	"github.com/DMzmwh/bing-dhtcrawler/storage"
 	boom "github.com/tylertreat/BoomFilters"
 )
 

@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bing/bing-dhtcrawler/crawler/metrics"
-	"github.com/bing/bing-dhtcrawler/dht"
+	"github.com/DMzmwh/bing-dhtcrawler/crawler/metrics"
+	"github.com/DMzmwh/bing-dhtcrawler/dht"
 )
 
 type BingData struct {
