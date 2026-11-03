@@ -502,4 +502,4 @@ A DHT crawler actively connects to public nodes and fetches publicly available t
 - [bing-play integration notes](docs/bing-play-integration.md)
 - [Project development guidelines](AGENTS.md)
 
-This repository does not include a `LICENSE` file.
+This project is licensed under the [MIT License](LICENSE).

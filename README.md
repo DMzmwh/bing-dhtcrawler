@@ -500,4 +500,4 @@ DHT 爬虫会主动连接公网节点并抓取公开的种子元数据。请仅�
 - [bing-play 集成说明](docs/bing-play-integration.md)
 - [项目开发规范](AGENTS.md)
 
-本仓库尚未包含 `LICENSE` 文件。
+本项目采用 [MIT License](LICENSE)。
