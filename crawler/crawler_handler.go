@@ -5,11 +5,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"net"
-	"sync"
+	"net/netip"
 	"time"
 
 	"github.com/DMzmwh/bing-dhtcrawler/dht"
 	"github.com/DMzmwh/bing-dhtcrawler/storage"
+	"github.com/anacrolix/torrent/metainfo"
 )
 
 /*
@@ -249,29 +250,49 @@ func (bc *BingCrawler) runGetHashInfoPeers(ctx context.Context) {
 
 func (bc *BingCrawler) runRequestMetaInfo(ctx context.Context) {
 	bc.requestMetaInfo.Run(ctx, func(hash InfoHashWithPeers) {
-		var errs []error
-
-		errsMutex := sync.Mutex{}
-		addErr := func(err error) {
-			errsMutex.Lock()
-			errs = append(errs, err)
-			errsMutex.Unlock()
-		}
-		for _, peer := range hash.peers {
+		var (
+			metaInfo metainfo.Info
+			peers    []netip.AddrPort
+		)
+		for _, peer := range appendUniquePeers(nil, hash.peers) {
 			res, err := bc.metainfoRequester.Request(ctx, hash.infoHash, peer)
 			if err != nil {
-				addErr(err)
 				continue
 			}
-			select {
-			case <-ctx.Done():
-			case bc.persistTorrents.In() <- InfoHashWithMetaInfo{
-				NodeHasPeersForHash: hash.NodeHasPeersForHash,
-				metaInfo:            res.Info,
-				peer:                peer}:
-			}
+			metaInfo = res.Info
+			peers = append(peers, peer)
+		}
+		if len(peers) == 0 {
+			return
+		}
+		select {
+		case <-ctx.Done():
+		case bc.persistTorrents.In() <- InfoHashWithMetaInfo{
+			NodeHasPeersForHash: hash.NodeHasPeersForHash,
+			metaInfo:            metaInfo,
+			peers:               peers,
+		}:
 		}
 	})
+}
+
+// appendUniquePeers 把 src 中未出现在 dst 的 peer 追加到 dst，保持原有顺序。
+func appendUniquePeers(dst, src []netip.AddrPort) []netip.AddrPort {
+	if len(src) == 0 {
+		return dst
+	}
+	seen := make(map[netip.AddrPort]struct{}, len(dst)+len(src))
+	for _, peer := range dst {
+		seen[peer] = struct{}{}
+	}
+	for _, peer := range src {
+		if _, ok := seen[peer]; ok {
+			continue
+		}
+		seen[peer] = struct{}{}
+		dst = append(dst, peer)
+	}
+	return dst
 }
 
 func (bc *BingCrawler) runScrape(ctx context.Context) {
@@ -360,21 +381,26 @@ func (c *BingCrawler) runPersistTorrents(ctx context.Context) {
 				continue
 			}
 
-			seen := make(map[dht.InfoHash]struct{}, len(items))
-			records := make([]any, 0, len(items))
+			// 同一批次内每个 InfoHash 只保留一条记录，重复项的 peer 合并到同一条记录。
+			seen := make(map[dht.InfoHash]int, len(items))
 			torrents := make([]InfoHashWithMetaInfo, 0, len(items))
 
 			for _, item := range items {
-				if _, exists := seen[item.infoHash]; exists {
+				if idx, exists := seen[item.infoHash]; exists {
+					torrents[idx].peers = appendUniquePeers(torrents[idx].peers, item.peers)
 					continue
 				}
-				seen[item.infoHash] = struct{}{}
-				records = append(records, createTorrentRecord(item, c.saveFilesThreshold))
+				seen[item.infoHash] = len(torrents)
 				torrents = append(torrents, item)
 			}
 
-			if len(records) == 0 {
+			if len(torrents) == 0 {
 				continue
+			}
+
+			records := make([]any, 0, len(torrents))
+			for _, item := range torrents {
+				records = append(records, createTorrentRecord(item, c.saveFilesThreshold))
 			}
 
 			if err := c.storage.SaveTorrents(ctx, records); err != nil {
@@ -415,8 +441,11 @@ func createTorrentRecord(item InfoHashWithMetaInfo, saveFilesThreshold uint) sto
 		record.NodeID = hex.EncodeToString(item.node.ID[:])
 		record.NodeAddr = item.node.Addr.String()
 	}
-	if item.peer.IsValid() {
-		record.PeerAddr = item.peer.String()
+	if len(item.peers) > 0 {
+		record.PeerAddrs = make([]string, 0, len(item.peers))
+		for _, peer := range item.peers {
+			record.PeerAddrs = append(record.PeerAddrs, peer.String())
+		}
 	}
 
 	limit := len(info.Files)

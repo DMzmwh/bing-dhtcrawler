@@ -7,13 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/anacrolix/dht/v2/krpc"
-	"github.com/anacrolix/torrent/metainfo"
 	"github.com/DMzmwh/bing-dhtcrawler/concurrency"
 	"github.com/DMzmwh/bing-dhtcrawler/crawler/metrics"
 	"github.com/DMzmwh/bing-dhtcrawler/dht"
 	"github.com/DMzmwh/bing-dhtcrawler/metadata"
 	"github.com/DMzmwh/bing-dhtcrawler/storage"
+	"github.com/anacrolix/dht/v2/krpc"
+	"github.com/anacrolix/torrent/metainfo"
 	boom "github.com/tylertreat/BoomFilters"
 )
 
@@ -207,8 +207,9 @@ type NodeHasPeersForHash struct {
 type InfoHashWithMetaInfo struct {
 	NodeHasPeersForHash
 	metaInfo metainfo.Info
-	// peer 是实际返回元数据的对等节点地址，可用于下载时直连。
-	peer netip.AddrPort
+	// peers 是实际返回该 InfoHash 元数据的对等节点地址集合（已去重），
+	// 可用于下载时直连。
+	peers []netip.AddrPort
 }
 
 type InfoHashWithPeers struct {

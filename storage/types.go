@@ -20,9 +20,9 @@ type TorrentRecord struct {
 	Files        []TorrentFileRecord `json:"files,omitempty"`
 	NodeID       string              `json:"node_id"`
 	NodeAddr     string              `json:"node_addr"`
-	// PeerAddr 是返回该种子元数据的对等节点地址（ip:port），
+	// PeerAddrs 是返回该种子元数据的对等节点地址集合（ip:port），已去重，
 	// 下载端可作为磁力链接的 x.pe 参数直接连接，无需再次通过 DHT 查找。
-	PeerAddr     string              `json:"peer_addr"`
+	PeerAddrs    []string            `json:"peer_addrs,omitempty"`
 	DiscoveredAt time.Time           `json:"discovered_at"`
 }
 
