@@ -97,7 +97,11 @@ func (bc *BingCrawler) runNodesForFindNode(ctx context.Context) {
 		case <-ticker.C:
 		}
 		for _, node := range nodes {
-			bc.nodesForFindNode.In() <- node
+			select {
+			case <-ctx.Done():
+				return
+			case bc.nodesForFindNode.In() <- node:
+			}
 		}
 	}
 }
@@ -178,7 +182,7 @@ func (bc *BingCrawler) runInfoHashTriage(ctx context.Context) {
 			return
 		case hashs := <-bc.infoHashTriage.Out():
 			if len(hashs) == 0 {
-				return
+				continue
 			}
 			hashMapById := make(map[dht.InfoHash]NodeHasPeersForHash)
 			result := make([]dht.InfoHash, 0)
@@ -189,29 +193,29 @@ func (bc *BingCrawler) runInfoHashTriage(ctx context.Context) {
 				hashMapById[hash.infoHash] = hash
 				result = append(result, hash.infoHash)
 			}
-			for _, hash := range result {
-				bc.getPeers.In() <- hashMapById[hash]
-			}
 			//此处还可添加其他过滤逻辑
 			infos, err := bc.storage.GetTriageInfo(ctx, result)
 			if err != nil {
-				bc.logger.Error("get triage info error", err)
-				return
+				bc.logger.Error("get triage info error", "err", err)
+				continue
 			}
-			for key, info := range infos {
-				select {
-				case <-ctx.Done():
-					return
-				default:
-
-				}
+			for _, hash := range result {
+				info := infos[hash]
 				if !info.Exists || !info.HasMetadata {
-					bc.getPeers.In() <- hashMapById[key]
 					//判断是否需要获取元数据
+					select {
+					case <-ctx.Done():
+						return
+					case bc.getPeers.In() <- hashMapById[hash]:
+					}
 					continue
 				}
 				//if info.Leechers == 0 || info.Seeders == 0 || info.UpdatedAt.Before(time.Now().Add(-bc.rescrapeThreshold)) {
-				//	bc.scrape.In() <- hashMapById[key]
+				//	select {
+				//	case <-ctx.Done():
+				//		return
+				//	case bc.scrape.In() <- hashMapById[hash]:
+				//	}
 				//	continue
 				//}
 			}
@@ -237,6 +241,9 @@ func (bc *BingCrawler) runGetHashInfoPeers(ctx context.Context) {
 				}
 			}
 		}
+		if len(res.Peers) == 0 {
+			return
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -250,19 +257,20 @@ func (bc *BingCrawler) runGetHashInfoPeers(ctx context.Context) {
 
 func (bc *BingCrawler) runRequestMetaInfo(ctx context.Context) {
 	bc.requestMetaInfo.Run(ctx, func(hash InfoHashWithPeers) {
-		var (
-			metaInfo metainfo.Info
-			peers    []netip.AddrPort
-		)
-		for _, peer := range appendUniquePeers(nil, hash.peers) {
+		// 同一 InfoHash 的元数据在所有 peer 上一致，拿到即停止逐个尝试。
+		candidates := appendUniquePeers(nil, hash.peers)
+		var metaInfo metainfo.Info
+		found := false
+		for _, peer := range candidates {
 			res, err := bc.metainfoRequester.Request(ctx, hash.infoHash, peer)
 			if err != nil {
 				continue
 			}
 			metaInfo = res.Info
-			peers = append(peers, peer)
+			found = true
+			break
 		}
-		if len(peers) == 0 {
+		if !found {
 			return
 		}
 		select {
@@ -270,7 +278,7 @@ func (bc *BingCrawler) runRequestMetaInfo(ctx context.Context) {
 		case bc.persistTorrents.In() <- InfoHashWithMetaInfo{
 			NodeHasPeersForHash: hash.NodeHasPeersForHash,
 			metaInfo:            metaInfo,
-			peers:               peers,
+			peers:               candidates,
 		}:
 		}
 	})
@@ -344,7 +352,7 @@ func (bc *BingCrawler) reseedBootstrapNodes(ctx context.Context) {
 			for _, strAddr := range bc.bootstrapNodes {
 				addr, err := net.ResolveUDPAddr("udp", strAddr)
 				if err != nil {
-					bc.logger.Error("failed to resolve bootstrap node address: %s", err)
+					bc.logger.Error("failed to resolve bootstrap node address", "err", err, "addr", strAddr)
 					continue
 				}
 				node := dht.Node{
@@ -426,12 +434,15 @@ func (c *BingCrawler) runPersistTorrents(ctx context.Context) {
 func createTorrentRecord(item InfoHashWithMetaInfo, saveFilesThreshold uint) storage.TorrentRecord {
 	info := item.metaInfo
 
+	// UpvertedFiles 会把单文件种子的 Name/Length 补成一条文件记录。
+	files := info.UpvertedFiles()
+
 	record := storage.TorrentRecord{
 		InfoHash:     hex.EncodeToString(item.infoHash[:]),
 		Name:         info.BestName(),
 		Size:         info.TotalLength(),
 		PieceLength:  info.PieceLength,
-		FileCount:    len(info.Files),
+		FileCount:    len(files),
 		DiscoveredAt: time.Now(),
 	}
 	if info.Private != nil {
@@ -448,12 +459,12 @@ func createTorrentRecord(item InfoHashWithMetaInfo, saveFilesThreshold uint) sto
 		}
 	}
 
-	limit := len(info.Files)
+	limit := len(files)
 	if saveFilesThreshold > 0 && limit > int(saveFilesThreshold) {
 		limit = int(saveFilesThreshold)
 	}
 	for i := 0; i < limit; i++ {
-		file := info.Files[i]
+		file := files[i]
 		record.Files = append(record.Files, storage.TorrentFileRecord{
 			Path: file.DisplayPath(&info),
 			Size: file.Length,
